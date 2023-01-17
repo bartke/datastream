@@ -17,6 +17,7 @@ service DataService {
   // streaming updates request from client to server
   rpc Subscribe(DataRequest) returns (stream DataResponse) {}
 
+  // optional push updates from client back to server
   rpc PushUpdate(Data) returns (google.protobuf.Empty) {}
 }
 
