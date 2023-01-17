@@ -1,0 +1,48 @@
+syntax = "proto3";
+
+package datastream;
+
+option go_package = "generated/datastream";
+
+import "google/protobuf/timestamp.proto";
+import "google/protobuf/empty.proto";
+
+service DataService {
+  // keys available for subscription
+  rpc ListCapabilities(ListCapabilitiesRequest) returns (ListCapabilitiesResponse) {}
+
+  // initial sync request from client to server
+  rpc Sync(DataRequest) returns (DataResponse) {}
+
+  // streaming updates request from client to server
+  rpc Subscribe(DataRequest) returns (stream DataResponse) {}
+
+  rpc PushUpdate(Data) returns (google.protobuf.Empty) {}
+}
+
+message Data {
+    string key = 1;
+    bytes value = 2;
+    string value_type = 3;
+    google.protobuf.Timestamp updated_at = 4;
+}
+
+message Capability {
+    string key = 1;
+    string value_type = 2;
+}
+
+message ListCapabilitiesRequest {
+}
+
+message ListCapabilitiesResponse {
+    repeated Capability capabilities = 1;
+}
+
+message DataRequest {
+  repeated string keys = 1;
+}
+
+message DataResponse {
+    map<string, Data> data = 1;
+}
