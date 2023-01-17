@@ -12,3 +12,15 @@ This is applicable to data such as settings and excange rates.
 - Subscribe: subscribe to the data stream and receive updates
 - PushUpdate: if supported, update a push a value update back on the server
 
+Note: Make sure you have installed protoc and the Go protobuf plugin on your system.
+
+The example setting service shows how a datastream service can be used to
+requesting, subscribing and push updates.
+
+```sh
+make
+./server &
+./client &
+./updater
+kill %1 # also terminates the client
+```
