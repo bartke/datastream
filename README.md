@@ -24,3 +24,18 @@ make
 ./updater
 kill %1 # also terminates the client
 ```
+
+server
+```
+2023/01/17 18:58:05 Starting gRPC server on :8080
+2023/01/17 18:58:08 method: /datastream.DataService/ListCapabilities, duration: 190.625µs, error: <nil>
+2023/01/17 18:58:12 method: /datastream.DataService/PushUpdate, duration: 1.05157ms, error: <nil>
+```
+
+client
+```
+2023/01/17 18:58:08 Capabilities: [key:"max_connections" value_type:"int" key:"rate_limit" value_type:"int" key:"debug_enabled" value_type:"bool"]
+2023/01/17 18:58:08 Subscribing to key: max_connections
+2023/01/17 18:58:08 Received update for key max_connections value [49 48], stringified data 10
+2023/01/17 18:58:12 Received update for key max_connections value [50 48], stringified data 20
+```
