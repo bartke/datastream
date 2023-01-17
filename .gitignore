@@ -1,0 +1,6 @@
+.DS_Store
+server
+client
+updater
+!examples/*
+*.db
