@@ -14,7 +14,6 @@ import (
 
 func main() {
 	// Open a SQLite database
-
 	s, err := settings.New("./example.db")
 	if err != nil {
 		log.Fatalf("error creating service: %v", err)

@@ -11,7 +11,7 @@ all: $(PROTO_DST)/*.pb.go server client updater
 
 # Compile the Protocol Buffer definitions
 $(PROTO_DST)/%.pb.go: $(PROTO_SRC)/*.proto
-	@mkdir -p api
+	@mkdir -p $(PROTO_DST)
 	$(PROTOC_CMD) $(PROTOC_OPTS) $<
 
 

@@ -29,6 +29,7 @@ type DataServiceClient interface {
 	Sync(ctx context.Context, in *DataRequest, opts ...grpc.CallOption) (*DataResponse, error)
 	// streaming updates request from client to server
 	Subscribe(ctx context.Context, in *DataRequest, opts ...grpc.CallOption) (DataService_SubscribeClient, error)
+	// optional push updates from client back to server
 	PushUpdate(ctx context.Context, in *Data, opts ...grpc.CallOption) (*emptypb.Empty, error)
 }
 
@@ -109,6 +110,7 @@ type DataServiceServer interface {
 	Sync(context.Context, *DataRequest) (*DataResponse, error)
 	// streaming updates request from client to server
 	Subscribe(*DataRequest, DataService_SubscribeServer) error
+	// optional push updates from client back to server
 	PushUpdate(context.Context, *Data) (*emptypb.Empty, error)
 	mustEmbedUnimplementedDataServiceServer()
 }
