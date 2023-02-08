@@ -16,12 +16,12 @@ Note: Make sure you have installed protoc and the Go protobuf plugin on your sys
 
 ## Backing stores
 
-There is a storage interface implemented for
+A storage interface and datastream grpc implementation example exists for
 - git - key=file path, value=file content
 - sqlite3 - key=table column, value=table column
 
 There is also a freestanding server implementation using sqlite3 with a local
-gRPC service implementation.
+gRPC service implementation under `examples/server/`.
 
 ## Examples
 
