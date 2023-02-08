@@ -9,10 +9,21 @@ This is applicable to data such as settings and excange rates.
 
 - ListCapabilities: lists available keys for subscription
 - Sync: sync with a server and receive the current state
-- Subscribe: subscribe to the data stream and receive updates
+- Subscribe: subscribe to the data stream and receive updates, initially syncs all keys
 - PushUpdate: if supported, update a push a value update back on the server
 
 Note: Make sure you have installed protoc and the Go protobuf plugin on your system.
+
+## Backing stores
+
+There is a storage interface implemented for
+- git - key=file path, value=file content
+- sqlite3 - key=table column, value=table column
+
+There is also a freestanding server implementation using sqlite3 with a local
+gRPC service implementation.
+
+## Examples
 
 The example setting service shows how a datastream service can be used to
 requesting, subscribing and push updates.

@@ -7,7 +7,7 @@ PROTOC_OPTS = -I $(PROTO_SRC) $< --go-grpc_out=. --go_out=.
 
 # The target of the makefile
 .PHONY: all
-all: $(PROTO_DST)/*.pb.go server client updater
+all: $(PROTO_DST)/*.pb.go server-sqlite server-git client updater
 
 # Compile the Protocol Buffer definitions
 $(PROTO_DST)/%.pb.go: $(PROTO_SRC)/*.proto
@@ -16,8 +16,12 @@ $(PROTO_DST)/%.pb.go: $(PROTO_SRC)/*.proto
 
 
 # Compile the server
-server: $(PROTO_DST)/*.pb.go examples/server/*.go
-	go build -o $@ examples/server/main.go
+server-sqlite: $(PROTO_DST)/*.pb.go examples/server-sqlite/*.go
+	go build -o $@ examples/server-sqlite/main.go
+
+# Compile the server
+server-git: $(PROTO_DST)/*.pb.go examples/server-git/*.go
+	go build -o $@ examples/server-git/main.go
 
 # Compile the client
 client: $(PROTO_DST)/*.pb.go examples/client/*.go
