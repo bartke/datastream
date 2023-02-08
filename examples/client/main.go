@@ -30,6 +30,17 @@ func main() {
 	log.Printf("Capabilities: %v", resp.Capabilities)
 
 	subkey := resp.Capabilities[0].Key
+
+	// sync for subkey
+	content, err := client.Sync(context.Background(), &datastream.DataRequest{Keys: []string{subkey}})
+	if err != nil {
+		log.Fatalf("error sending Sync request: %v", err)
+	}
+
+	for key, data := range content.Data {
+		log.Printf("Received sync update for key %s value %v, stringified data %s", key, data.Value, string(data.Value))
+	}
+
 	log.Printf("Subscribing to key: %s", subkey)
 
 	// Create a stream to receive updates
@@ -50,7 +61,7 @@ func main() {
 		}
 
 		for key, data := range update.Data {
-			log.Printf("Received update for key %s value %v, stringified data %s", key, data.Value, string(data.Value))
+			log.Printf("Received subscription update for key %s value %v, stringified data %s", key, data.Value, string(data.Value))
 		}
 	}
 }
