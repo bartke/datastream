@@ -14,10 +14,22 @@ import (
 )
 
 func main() {
-	ps, err := storage.NewGitRepository(storage.Params{
+	errorChan := make(chan error)
+	ps, err := storage.NewGitRepository(storage.GitRepositoryConfig{
 		RepoPath:     ".", // Use the current directory as a git repository
 		SyncInterval: 5 * time.Second,
+		ErrorChannel: errorChan,
 	})
+	if err != nil {
+		log.Fatalf("error creating service: %v", err)
+	}
+
+	// subscribe to error channel from subscribe handler errors
+	go func() {
+		for err := range errorChan {
+			log.Printf("error: %v", err)
+		}
+	}()
 
 	srv := service.NewDataServiceServer(ps)
 

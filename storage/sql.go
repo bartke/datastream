@@ -2,7 +2,6 @@ package storage
 
 import (
 	"database/sql"
-	"fmt"
 	"strings"
 	"time"
 )
@@ -12,6 +11,27 @@ type SQLTable struct {
 	table string
 
 	syncInterval time.Duration
+	errorChannel chan<- error
+}
+
+type SQLConfig struct {
+	// DB is the database connection to use
+	DB *sql.DB
+
+	// Table is the name of the table to use for storing data
+	Table string
+
+	// SyncInterval is the interval at which the storage will sync to disk
+	SyncInterval time.Duration
+
+	// Optional
+	ErrorChan chan<- error
+}
+
+func (s *SQLTable) forwardError(err error) {
+	if s.errorChannel != nil {
+		s.errorChannel <- err
+	}
 }
 
 func (s *SQLTable) ListCapabilities() ([]Capability, error) {
@@ -65,6 +85,7 @@ func (s *SQLTable) Sync(keys []string) (map[string]Data, error) {
 
 func (s *SQLTable) Subscribe(keys []string) (<-chan Data, error) {
 	dataChannel := make(chan Data)
+
 	var last time.Time
 	go func() {
 		// Continuously poll the database for changes in the specified keys
@@ -74,8 +95,8 @@ func (s *SQLTable) Subscribe(keys []string) (<-chan Data, error) {
 
 			rows, err := s.db.Query("SELECT key, value, value_type, updated_at FROM "+s.table+" WHERE key IN (?) and updated_at > ?", strings.Join(keys, ","), since)
 			if err != nil {
-				fmt.Println("Error querying database: ", err)
-				break
+				s.forwardError(err)
+				continue
 			}
 			defer rows.Close()
 
@@ -83,13 +104,13 @@ func (s *SQLTable) Subscribe(keys []string) (<-chan Data, error) {
 				var data Data
 				var updatedAtString string
 				if err := rows.Scan(&data.Key, &data.Value, &data.ValueType, &updatedAtString); err != nil {
-					fmt.Println("Error scanning row: ", err)
-					break
+					s.forwardError(err)
+					continue
 				}
 				data.UpdatedAt, err = time.Parse(time.RFC3339, updatedAtString)
 				if err != nil {
-					fmt.Println("Error parsing updated_at: ", err)
-					break
+					s.forwardError(err)
+					continue
 				}
 				// if last is zero or the updated_at is after last, update last
 				if last.IsZero() || data.UpdatedAt.After(last) {
@@ -102,6 +123,7 @@ func (s *SQLTable) Subscribe(keys []string) (<-chan Data, error) {
 		}
 		close(dataChannel)
 	}()
+
 	return dataChannel, nil
 }
 

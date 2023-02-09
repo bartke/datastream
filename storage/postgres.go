@@ -1,37 +1,35 @@
 package storage
 
 import (
-	"database/sql"
 	"fmt"
-	"time"
 )
 
-// SQLTable implements the Storage interface for a SQL database
-func NewPostgresStorage(db *sql.DB, table string, syncInterval time.Duration) (Storage, error) {
+// PostgresStorage implements the Storage interface for a Postgres database
+func NewPostgresStorage(config SQLConfig) (Storage, error) {
 	// ensure that table exists and has the columns: key, value, value_type, updated_at
 	// if not, error out
-	stmt, err := db.Prepare("SELECT table_name FROM information_schema.tables WHERE table_schema='public' AND table_name=?")
+	stmt, err := config.DB.Prepare("SELECT table_name FROM information_schema.tables WHERE table_schema='public' AND table_name=?")
 	if err != nil {
 		return nil, err
 	}
 	defer stmt.Close()
 
 	var name string
-	if err := stmt.QueryRow(table).Scan(&name); err != nil {
+	if err := stmt.QueryRow(config.Table).Scan(&name); err != nil {
 		return nil, err
 	}
-	if name != table {
-		return nil, fmt.Errorf("table %s does not exist", table)
+	if name != config.Table {
+		return nil, fmt.Errorf("table %s does not exist", config.Table)
 	}
 
 	// check that the table has the correct columns
-	stmt, err = db.Prepare("SELECT column_name FROM information_schema.columns WHERE table_name=?")
+	stmt, err = config.DB.Prepare("SELECT column_name FROM information_schema.columns WHERE table_name=?")
 	if err != nil {
 		return nil, err
 	}
 	defer stmt.Close()
 
-	rows, err := stmt.Query(table)
+	rows, err := stmt.Query(config.Table)
 	if err != nil {
 		return nil, err
 	}
@@ -50,22 +48,23 @@ func NewPostgresStorage(db *sql.DB, table string, syncInterval time.Duration) (S
 	}
 
 	if !contains(columns, "key") {
-		return nil, fmt.Errorf("table %s does not have a column named 'key'", table)
+		return nil, fmt.Errorf("table %s does not have a column named 'key'", config.Table)
 	}
 	if !contains(columns, "value") {
-		return nil, fmt.Errorf("table %s does not have a column named 'value'", table)
+		return nil, fmt.Errorf("table %s does not have a column named 'value'", config.Table)
 	}
 	if !contains(columns, "value_type") {
-		return nil, fmt.Errorf("table %s does not have a column named 'value_type'", table)
+		return nil, fmt.Errorf("table %s does not have a column named 'value_type'", config.Table)
 	}
 	if !contains(columns, "updated_at") {
-		return nil, fmt.Errorf("table %s does not have a column named 'updated_at'", table)
+		return nil, fmt.Errorf("table %s does not have a column named 'updated_at'", config.Table)
 	}
 
 	return &SQLTable{
-		db:           db,
-		table:        table,
-		syncInterval: syncInterval,
+		db:           config.DB,
+		table:        config.Table,
+		syncInterval: config.SyncInterval,
+		errorChannel: config.ErrorChan,
 	}, nil
 }
 

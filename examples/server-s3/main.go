@@ -21,7 +21,14 @@ func main() {
 	secretKey := os.Getenv("MINIO_SECRET_KEY")
 	bucket := os.Getenv("MINIO_BUCKET")
 
-	ps, err := storage.NewS3Storage(endpoint, region, accessKey, secretKey, bucket, 5*time.Second)
+	ps, err := storage.NewS3Storage(storage.S3StorageConfig{
+		Endpoint:     endpoint,
+		Region:       region,
+		AccessKey:    accessKey,
+		SecretKey:    secretKey,
+		Bucket:       bucket,
+		SyncInterval: 5 * time.Second,
+	})
 	if err != nil {
 		log.Fatalf("error creating service: %v", err)
 	}

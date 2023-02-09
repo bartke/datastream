@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"fmt"
 	"io/ioutil"
-	"log"
 	"strings"
 	"time"
 
@@ -19,25 +18,59 @@ type S3Storage struct {
 	client       *s3.S3
 	bucket       string
 	syncInterval time.Duration
+	errorChannel chan<- error
+}
+
+type S3StorageConfig struct {
+	// S3 compatible storage endpoint
+	Endpoint string
+	// S3 compatible storage region
+	Region string
+	// S3 compatible storage access key
+	AccessKey string
+	// S3 compatible storage secret key
+	SecretKey string
+	// S3 compatible storage bucket
+	Bucket string
+
+	// optional aws access token
+	AccessToken string
+
+	// optional sync interval, default is 5 seconds
+	SyncInterval time.Duration
+
+	// optional error channel
+	ErrorChan chan<- error
 }
 
 // NewS3Storage creates a new S3Storage instance
-func NewS3Storage(endpoint, region, accessKey, secretKey, bucket string, syncInterval time.Duration) (*S3Storage, error) {
+func NewS3Storage(config S3StorageConfig) (*S3Storage, error) {
 	sess, err := session.NewSession(&aws.Config{
-		Region:           aws.String(region),
-		Endpoint:         aws.String(endpoint),
-		Credentials:      credentials.NewStaticCredentials(accessKey, secretKey, ""),
+		Endpoint:         aws.String(config.Endpoint),
+		Region:           aws.String(config.Region),
+		Credentials:      credentials.NewStaticCredentials(config.AccessKey, config.SecretKey, config.AccessToken),
 		S3ForcePathStyle: aws.Bool(true),
 	})
 	if err != nil {
 		return nil, err
 	}
 
+	if config.SyncInterval == 0 {
+		config.SyncInterval = DefaultSynccInterval
+	}
+
 	return &S3Storage{
 		client:       s3.New(sess),
-		bucket:       bucket,
-		syncInterval: syncInterval,
+		bucket:       config.Bucket,
+		syncInterval: config.SyncInterval,
+		errorChannel: config.ErrorChan,
 	}, nil
+}
+
+func (s *S3Storage) forwardError(err error) {
+	if s.errorChannel != nil {
+		s.errorChannel <- err
+	}
 }
 
 // ListCapabilities lists available keys for subscription
@@ -98,7 +131,6 @@ func (s *S3Storage) Sync(keys []string) (map[string]Data, error) {
 
 func (s *S3Storage) Subscribe(keys []string) (<-chan Data, error) {
 	updates := make(chan Data)
-	// last := make(map[string]time.Time)
 	lastETag := make(map[string]string)
 
 	go func() {
@@ -114,17 +146,24 @@ func (s *S3Storage) Subscribe(keys []string) (<-chan Data, error) {
 						MaxKeys: aws.Int64(1000), // fixme
 					})
 					if err != nil {
-						log.Println("Error listing objects in S3:", err)
+						s.forwardError(err)
 						continue
 					}
 
 					// Loop through the objects and check if they have been updated
 					for _, obj := range resp.Contents {
 						// Check if the object has been updated by comparing its ETAG
-						if lastETag[*obj.Key] != *obj.ETag {
-							s.fetchObjectAndSendUpdate(updates, *obj.Key)
-							lastETag[*obj.Key] = *obj.ETag
+						if lastETag[*obj.Key] == *obj.ETag {
+							continue
 						}
+
+						err := s.fetchObjectAndSendUpdate(updates, *obj.Key)
+						if err != nil {
+							s.forwardError(err)
+							continue
+						}
+
+						lastETag[*obj.Key] = *obj.ETag
 					}
 				} else {
 					head, err := s.client.HeadObject(&s3.HeadObjectInput{
@@ -132,7 +171,7 @@ func (s *S3Storage) Subscribe(keys []string) (<-chan Data, error) {
 						Key:    aws.String(key),
 					})
 					if err != nil || head.ETag == nil {
-						log.Println("Error getting object from S3:", err)
+						s.forwardError(err)
 						continue
 					}
 

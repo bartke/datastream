@@ -2,6 +2,8 @@ package storage
 
 import "time"
 
+const DefaultSynccInterval = 5 * time.Second
+
 type Capability struct {
 	Key       string
 	ValueType string

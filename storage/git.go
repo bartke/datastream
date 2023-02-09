@@ -14,33 +14,52 @@ import (
 type GitRepository struct {
 	repo *git.Repository
 
-	name         string
-	email        string
+	name  string
+	email string
+
 	syncInterval time.Duration
+	errorChannel chan<- error
 }
 
-type Params struct {
+type GitRepositoryConfig struct {
 	RepoPath string
 
-	// optional
-	Name         string
-	Email        string
+	// optional name for commits
+	Name string
+	// optional email for commits
+	Email string
+
+	// optional sync interval, default is 5 seconds
 	SyncInterval time.Duration
+
+	// optional error channel
+	ErrorChannel chan<- error
 }
 
 // NewGitRepository creates a new GitRepository type that implements the Storage interface
-func NewGitRepository(p Params) (Storage, error) {
-	repo, err := git.PlainOpen(p.RepoPath)
+func NewGitRepository(config GitRepositoryConfig) (Storage, error) {
+	repo, err := git.PlainOpen(config.RepoPath)
 	if err != nil {
 		return nil, err
 	}
 
+	if config.SyncInterval == 0 {
+		config.SyncInterval = DefaultSynccInterval
+	}
+
 	return &GitRepository{
 		repo:         repo,
-		name:         p.Name,
-		email:        p.Email,
-		syncInterval: p.SyncInterval,
+		name:         config.Name,
+		email:        config.Email,
+		syncInterval: config.SyncInterval,
+		errorChannel: config.ErrorChannel,
 	}, nil
+}
+
+func (s *GitRepository) forwardError(err error) {
+	if s.errorChannel != nil {
+		s.errorChannel <- err
+	}
 }
 
 func (r *GitRepository) ListCapabilities() ([]Capability, error) {
@@ -114,20 +133,24 @@ func (r *GitRepository) Sync(keys []string) (map[string]Data, error) {
 
 	return data, nil
 }
+
 func (r *GitRepository) Subscribe(keys []string) (<-chan Data, error) {
 	out := make(chan Data)
+
 	var last time.Time
+
 	go func() {
 		defer close(out)
 		for {
 			ref, err := r.repo.Head()
 			if err != nil {
+				r.forwardError(fmt.Errorf("failed to retrieve HEAD reference: %w", err))
 				return
 			}
 
-			// timestamp of ref
 			c, err := r.repo.CommitObject(ref.Hash())
 			if err != nil {
+				r.forwardError(fmt.Errorf("failed to retrieve commit: %w", err))
 				return
 			}
 
@@ -137,16 +160,22 @@ func (r *GitRepository) Subscribe(keys []string) (<-chan Data, error) {
 			}
 
 			tree, err := c.Tree()
+			if err != nil {
+				r.forwardError(fmt.Errorf("failed to retrieve tree: %w", err))
+				return
+			}
 
 			for _, key := range keys {
 				file, err := tree.File(key)
 				if err != nil {
+					r.forwardError(fmt.Errorf("failed to retrieve file '%s': %w", key, err))
 					continue
 				}
 
 				value, err := file.Contents()
 				if err != nil {
-					return
+					r.forwardError(fmt.Errorf("failed to retrieve file contents '%s': %w", key, err))
+					continue
 				}
 
 				out <- Data{
@@ -161,6 +190,7 @@ func (r *GitRepository) Subscribe(keys []string) (<-chan Data, error) {
 			<-time.After(r.syncInterval)
 		}
 	}()
+
 	return out, nil
 }
 
@@ -182,7 +212,8 @@ func (r *GitRepository) PushUpdate(data *Data) error {
 	if err != nil {
 		return err
 	}
-	commit, err := w.Commit("Update key", &git.CommitOptions{
+
+	_, err = w.Commit("Update key", &git.CommitOptions{
 		Author: &object.Signature{
 			Name:  r.name,
 			Email: r.email,

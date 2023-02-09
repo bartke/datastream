@@ -23,7 +23,10 @@ func main() {
 		log.Fatalf("error creating service: %v", err)
 	}
 
-	ps, err := storage.NewSQLiteStorage(db, "data", 5*time.Second)
+	ps, err := storage.NewSQLiteStorage(storage.SQLConfig{
+		DB:           db,
+		SyncInterval: 5 * time.Second,
+	})
 	if err != nil {
 		log.Fatalf("error creating service: %v", err)
 	}
