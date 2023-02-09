@@ -10,6 +10,8 @@ import (
 type SQLTable struct {
 	db    *sql.DB
 	table string
+
+	syncInterval time.Duration
 }
 
 func (s *SQLTable) ListCapabilities() ([]Capability, error) {
@@ -96,7 +98,7 @@ func (s *SQLTable) Subscribe(keys []string) (<-chan Data, error) {
 				dataChannel <- data
 			}
 
-			<-time.After(5 * time.Second)
+			<-time.After(s.syncInterval)
 		}
 		close(dataChannel)
 	}()

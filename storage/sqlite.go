@@ -4,12 +4,13 @@ import (
 	"database/sql"
 	"fmt"
 	"strings"
+	"time"
 
 	_ "github.com/mattn/go-sqlite3"
 )
 
 // NewSQLiteStorage creates a new instance of a SQLite-based storage implementation
-func NewSQLiteStorage(db *sql.DB, table string) (Storage, error) {
+func NewSQLiteStorage(db *sql.DB, table string, syncInterval time.Duration) (Storage, error) {
 	if err := db.Ping(); err != nil {
 		return nil, err
 	}
@@ -53,5 +54,5 @@ func NewSQLiteStorage(db *sql.DB, table string) (Storage, error) {
 		return nil, fmt.Errorf("table %s does not have a column named 'updated_at'", table)
 	}
 
-	return &SQLTable{db: db, table: table}, nil
+	return &SQLTable{db: db, table: table, syncInterval: syncInterval}, nil
 }

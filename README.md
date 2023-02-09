@@ -20,7 +20,8 @@ Note: Make sure you have installed protoc and the Go protobuf plugin on your sys
 A storage interface and datastream grpc implementation example exists for
 - **git repository** - key=file path, value=file content
 - **sqlite3** - key=table column, value=table column
-- **postgres** - key=table column, value=table column
+- **postgresql** - key=table column, value=table column
+- **S3/minio compatible storage** - key=path, valu=file content
 
 There is also a freestanding settings server implementation example using
 sqlite3 with a local gRPC service implementation under `examples/server/`.

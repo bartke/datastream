@@ -3,10 +3,11 @@ package storage
 import (
 	"database/sql"
 	"fmt"
+	"time"
 )
 
 // SQLTable implements the Storage interface for a SQL database
-func NewPostgresStorage(db *sql.DB, table string) (Storage, error) {
+func NewPostgresStorage(db *sql.DB, table string, syncInterval time.Duration) (Storage, error) {
 	// ensure that table exists and has the columns: key, value, value_type, updated_at
 	// if not, error out
 	stmt, err := db.Prepare("SELECT table_name FROM information_schema.tables WHERE table_schema='public' AND table_name=?")
@@ -62,8 +63,9 @@ func NewPostgresStorage(db *sql.DB, table string) (Storage, error) {
 	}
 
 	return &SQLTable{
-		db:    db,
-		table: table,
+		db:           db,
+		table:        table,
+		syncInterval: syncInterval,
 	}, nil
 }
 
