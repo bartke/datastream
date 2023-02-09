@@ -2,26 +2,28 @@
 
 Simple gRPC service definition to request data and receive updates by push from
 the source. The idea is to solve the common problem of different approaches to
-data streaming and provide a consistent interface for requesting and receiving
-data updates.
+data streaming and provide a consistent interface for requesting, propagating
+and receiving data updates.
 
-This is applicable to data such as settings and excange rates.
+This is applicable to use cases such as configuration management, real-time data
+such as exchange rates, notification subscribers, file management and similar.
 
-- ListCapabilities: lists available keys for subscription
-- Sync: sync with a server and receive the current state
-- Subscribe: subscribe to the data stream and receive updates, initially syncs all keys
-- PushUpdate: if supported, update a push a value update back on the server
+- `ListCapabilities`: lists available keys for subscription
+- `Sync`: sync with a server and receive the current state
+- `Subscribe`: subscribe to the data stream and receive updates, initially syncs all keys
+- `PushUpdate`: if supported, update and push a value update back on the server
 
 Note: Make sure you have installed protoc and the Go protobuf plugin on your system.
 
 ## Backing stores
 
 A storage interface and datastream grpc implementation example exists for
-- git - key=file path, value=file content
-- sqlite3 - key=table column, value=table column
+- **git repository** - key=file path, value=file content
+- **sqlite3** - key=table column, value=table column
+- **postgres** - key=table column, value=table column
 
-There is also a freestanding server implementation using sqlite3 with a local
-gRPC service implementation under `examples/server/`.
+There is also a freestanding settings server implementation example using
+sqlite3 with a local gRPC service implementation under `examples/server/`.
 
 ## Examples
 
