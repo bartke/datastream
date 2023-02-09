@@ -121,7 +121,6 @@ func (s *S3Storage) Subscribe(keys []string) (<-chan Data, error) {
 					// Loop through the objects and check if they have been updated
 					for _, obj := range resp.Contents {
 						// Check if the object has been updated by comparing its ETAG
-						fmt.Println("obj.ETag", *obj.ETag)
 						if lastETag[*obj.Key] != *obj.ETag {
 							s.fetchObjectAndSendUpdate(updates, *obj.Key)
 							lastETag[*obj.Key] = *obj.ETag
@@ -137,7 +136,6 @@ func (s *S3Storage) Subscribe(keys []string) (<-chan Data, error) {
 						continue
 					}
 
-					fmt.Println("head.ETag", *head.ETag)
 					if lastETag[key] != *head.ETag {
 						s.fetchObjectAndSendUpdate(updates, key)
 						lastETag[key] = *head.ETag

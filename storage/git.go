@@ -122,14 +122,12 @@ func (r *GitRepository) Subscribe(keys []string) (<-chan Data, error) {
 		for {
 			ref, err := r.repo.Head()
 			if err != nil {
-				fmt.Println("Head", err)
 				return
 			}
 
 			// timestamp of ref
 			c, err := r.repo.CommitObject(ref.Hash())
 			if err != nil {
-				fmt.Println("CommitObject", err)
 				return
 			}
 
@@ -148,7 +146,6 @@ func (r *GitRepository) Subscribe(keys []string) (<-chan Data, error) {
 
 				value, err := file.Contents()
 				if err != nil {
-					fmt.Println("Contents", err)
 					return
 				}
 
@@ -201,8 +198,6 @@ func (r *GitRepository) PushUpdate(data *Data) error {
 	if err != nil {
 		return err
 	}
-
-	fmt.Printf("Committed update for key %s with commit ID %s\n", data.Key, commit.String())
 
 	return nil
 }
