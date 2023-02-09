@@ -3,6 +3,7 @@ package main
 import (
 	"log"
 	"net"
+	"os"
 	"time"
 
 	"github.com/bartke/datastream/examples/shared"
@@ -14,10 +15,16 @@ import (
 )
 
 func main() {
-	ps, err := storage.NewGitRepository(storage.Params{
-		RepoPath:     ".", // Use the current directory as a git repository
-		SyncInterval: 5 * time.Second,
-	})
+	endpoint := os.Getenv("MINIO_ENDPOINT")
+	region := os.Getenv("MINIO_REGION")
+	accessKey := os.Getenv("MINIO_ACCESS_KEY")
+	secretKey := os.Getenv("MINIO_SECRET_KEY")
+	bucket := os.Getenv("MINIO_BUCKET")
+
+	ps, err := storage.NewS3Storage(endpoint, region, accessKey, secretKey, bucket, 5*time.Second)
+	if err != nil {
+		log.Fatalf("error creating service: %v", err)
+	}
 
 	srv := service.NewDataServiceServer(ps)
 
