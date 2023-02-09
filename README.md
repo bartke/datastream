@@ -1,12 +1,13 @@
+[![Go Reference](https://pkg.go.dev/badge/github.com/bartke/datastream.svg)](https://pkg.go.dev/github.com/bartke/datastream)
+[![Go Report Card](https://goreportcard.com/badge/github.com/bartke/datastream)](https://goreportcard.com/report/github.com/bartke/datastream)
+
 # datastream
 
-Simple gRPC service definition to request data and receive updates by push from
-the source. The idea is to solve the common problem of different approaches to
-data streaming and provide a consistent interface for requesting, propagating
-and receiving data updates.
-
-This is applicable to use cases such as configuration management, real-time data
-such as exchange rates, notification subscribers, file management and similar.
+Datastream is a gRPC service definition that provides a consistent interface for
+requesting, propagating and receiving real-time data updates. It aims to be a
+simple interface for a common set of problems around use cases such as
+configuration management, real-time data such as exchange rates, notification
+subscribers, file management and similar.
 
 - `ListCapabilities`: lists available keys for subscription
 - `Sync`: sync with a server and receive the current state
@@ -24,7 +25,8 @@ A storage interface and datastream grpc implementation example exists for
 - **S3/minio compatible storage** - key=path, valu=file content
 
 There is also a freestanding settings server implementation example using
-sqlite3 with a local gRPC service implementation under `examples/server/`.
+sqlite3 with a local gRPC service implementation under `examples/server/` and a
+self-communication example.
 
 ## Examples
 
