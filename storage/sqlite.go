@@ -53,7 +53,7 @@ func NewSQLiteStorage(config SQLConfig) (Storage, error) {
 	}
 
 	if config.SyncInterval == 0 {
-		config.SyncInterval = DefaultSynccInterval
+		config.SyncInterval = DefaultSyncInterval
 	}
 
 	return &SQLTable{

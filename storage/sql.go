@@ -96,7 +96,7 @@ func (s *SQLTable) Subscribe(keys []string) (<-chan Data, error) {
 			rows, err := s.db.Query("SELECT key, value, value_type, updated_at FROM "+s.table+" WHERE key IN (?) and updated_at > ?", strings.Join(keys, ","), since)
 			if err != nil {
 				s.forwardError(err)
-				continue
+				break
 			}
 			defer rows.Close()
 

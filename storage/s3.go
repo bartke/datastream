@@ -56,7 +56,7 @@ func NewS3Storage(config S3StorageConfig) (*S3Storage, error) {
 	}
 
 	if config.SyncInterval == 0 {
-		config.SyncInterval = DefaultSynccInterval
+		config.SyncInterval = DefaultSyncInterval
 	}
 
 	return &S3Storage{
@@ -134,6 +134,7 @@ func (s *S3Storage) Subscribe(keys []string) (<-chan Data, error) {
 	lastETag := make(map[string]string)
 
 	go func() {
+	outer:
 		for {
 			for _, key := range keys {
 				if strings.HasSuffix(key, "/") {
@@ -147,7 +148,7 @@ func (s *S3Storage) Subscribe(keys []string) (<-chan Data, error) {
 					})
 					if err != nil {
 						s.forwardError(err)
-						continue
+						break outer
 					}
 
 					// Loop through the objects and check if they have been updated
@@ -172,7 +173,7 @@ func (s *S3Storage) Subscribe(keys []string) (<-chan Data, error) {
 					})
 					if err != nil || head.ETag == nil {
 						s.forwardError(err)
-						continue
+						break outer
 					}
 
 					if lastETag[key] != *head.ETag {
@@ -184,6 +185,7 @@ func (s *S3Storage) Subscribe(keys []string) (<-chan Data, error) {
 				<-time.After(s.syncInterval)
 			}
 		}
+		close(updates)
 	}()
 
 	return updates, nil
