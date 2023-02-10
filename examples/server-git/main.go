@@ -16,7 +16,11 @@ import (
 func main() {
 	errorChan := make(chan error)
 	ps, err := storage.NewGitRepository(storage.GitRepositoryConfig{
-		RepoPath:     ".", // Use the current directory as a git repository
+		RepoPath: ".", // Use the current directory as a git repository
+		// RepoPath: "https://github.com/bartke/testrepo",
+		// Username: "bartke",
+		// for GitHub private repos use a personal access token
+		// Password:     "ghp_...",
 		SyncInterval: 5 * time.Second,
 		ErrorChannel: errorChan,
 	})

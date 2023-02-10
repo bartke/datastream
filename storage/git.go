@@ -3,16 +3,23 @@ package storage
 import (
 	"fmt"
 	"io/ioutil"
+	"os"
 	"path/filepath"
+	"strconv"
 	"time"
 
 	"github.com/go-git/go-git/v5"
 	"github.com/go-git/go-git/v5/plumbing/object"
+	"github.com/go-git/go-git/v5/plumbing/transport"
+	"github.com/go-git/go-git/v5/plumbing/transport/http"
 )
 
 // GitRepository implements the Storage interface for a Git repository
 type GitRepository struct {
 	repo *git.Repository
+	auth transport.AuthMethod
+
+	isRemote bool
 
 	name  string
 	email string
@@ -25,9 +32,13 @@ type GitRepositoryConfig struct {
 	RepoPath string
 
 	// optional name for commits
-	Name string
+	CommitName string
 	// optional email for commits
-	Email string
+	CommitEmail string
+	// optional username for basic auth
+	Username string
+	// optional basic auth token
+	Password string
 
 	// optional sync interval, default is 5 seconds
 	SyncInterval time.Duration
@@ -38,22 +49,55 @@ type GitRepositoryConfig struct {
 
 // NewGitRepository creates a new GitRepository type that implements the Storage interface
 func NewGitRepository(config GitRepositoryConfig) (Storage, error) {
-	repo, err := git.PlainOpen(config.RepoPath)
+	timestamp := strconv.FormatInt(time.Now().Unix(), 10)
+	tempDir := filepath.Join(os.TempDir(), timestamp)
+
+	err := os.MkdirAll(tempDir, 0755)
 	if err != nil {
 		return nil, err
 	}
 
-	if config.SyncInterval == 0 {
-		config.SyncInterval = DefaultSynccInterval
-	}
+	fmt.Println("tempDir: ", tempDir)
 
-	return &GitRepository{
-		repo:         repo,
-		name:         config.Name,
-		email:        config.Email,
+	store := &GitRepository{
+		name:         config.CommitName,
+		email:        config.CommitEmail,
 		syncInterval: config.SyncInterval,
 		errorChannel: config.ErrorChannel,
-	}, nil
+	}
+
+	if config.Password != "" {
+		store.auth = &http.BasicAuth{
+			Username: config.Username,
+			Password: config.Password,
+		}
+	}
+
+	// either local or switch to remote and clone
+	repo, err := git.PlainOpen(config.RepoPath)
+	if err == git.ErrRepositoryNotExists {
+		cfg := &git.CloneOptions{
+			URL:          config.RepoPath,
+			SingleBranch: true,
+			Progress:     ioutil.Discard,
+			Auth:         store.auth,
+		}
+		repo, err = git.PlainClone(tempDir, false, cfg)
+		if err != nil {
+			return nil, err
+		}
+		store.isRemote = true
+	} else if err != nil {
+		return nil, err
+	}
+
+	store.repo = repo
+
+	if store.syncInterval == 0 {
+		store.syncInterval = DefaultSyncInterval
+	}
+
+	return store, nil
 }
 
 func (s *GitRepository) forwardError(err error) {
@@ -95,8 +139,39 @@ func (r *GitRepository) ListCapabilities() ([]Capability, error) {
 	return capabilities, nil
 }
 
+func (r *GitRepository) sync() error {
+	if !r.isRemote {
+		return nil
+	}
+
+	opts := &git.PullOptions{
+		Progress: ioutil.Discard,
+		Force:    true,
+	}
+
+	if r.auth != nil {
+		opts.Auth = r.auth
+	}
+
+	tree, err := r.repo.Worktree()
+	if err != nil {
+		return err
+	}
+
+	err = tree.Pull(opts)
+	if err != nil && err != git.NoErrAlreadyUpToDate {
+		return err
+	}
+
+	return nil
+}
+
 func (r *GitRepository) Sync(keys []string) (map[string]Data, error) {
 	data := make(map[string]Data)
+
+	if err := r.sync(); err != nil {
+		return nil, fmt.Errorf("failed to sync: %w", err)
+	}
 
 	tree, err := r.repo.Worktree()
 	if err != nil {
@@ -137,58 +212,62 @@ func (r *GitRepository) Sync(keys []string) (map[string]Data, error) {
 func (r *GitRepository) Subscribe(keys []string) (<-chan Data, error) {
 	out := make(chan Data)
 
-	var last time.Time
+	var hash string
 
 	go func() {
 		defer close(out)
 		for {
+			if err := r.sync(); err != nil {
+				r.forwardError(err)
+				// no reason to abort yet - just try again
+			}
+
 			ref, err := r.repo.Head()
 			if err != nil {
 				r.forwardError(fmt.Errorf("failed to retrieve HEAD reference: %w", err))
-				return
+				break
 			}
 
 			c, err := r.repo.CommitObject(ref.Hash())
 			if err != nil {
 				r.forwardError(fmt.Errorf("failed to retrieve commit: %w", err))
-				return
+				break
 			}
 
 			// if no update has been made since the last sync, skip
-			if c.Author.When.Before(last) {
-				continue
-			}
-
-			tree, err := c.Tree()
-			if err != nil {
-				r.forwardError(fmt.Errorf("failed to retrieve tree: %w", err))
-				return
-			}
-
-			for _, key := range keys {
-				file, err := tree.File(key)
+			if ref.Hash().String() != hash {
+				tree, err := c.Tree()
 				if err != nil {
-					r.forwardError(fmt.Errorf("failed to retrieve file '%s': %w", key, err))
-					continue
+					r.forwardError(fmt.Errorf("failed to retrieve tree: %w", err))
+					return
 				}
 
-				value, err := file.Contents()
-				if err != nil {
-					r.forwardError(fmt.Errorf("failed to retrieve file contents '%s': %w", key, err))
-					continue
-				}
+				for _, key := range keys {
+					file, err := tree.File(key)
+					if err != nil {
+						r.forwardError(fmt.Errorf("failed to retrieve file '%s': %w", key, err))
+						continue
+					}
 
-				out <- Data{
-					Key:       key,
-					Value:     []byte(value),
-					ValueType: "text/plain",
-					UpdatedAt: c.Author.When,
+					value, err := file.Contents()
+					if err != nil {
+						r.forwardError(fmt.Errorf("failed to retrieve file contents '%s': %w", key, err))
+						continue
+					}
+
+					out <- Data{
+						Key:       key,
+						Value:     []byte(value),
+						ValueType: "text/plain",
+						UpdatedAt: c.Author.When,
+					}
 				}
 			}
 
-			last = time.Now()
+			hash = ref.Hash().String()
 			<-time.After(r.syncInterval)
 		}
+		close(out)
 	}()
 
 	return out, nil
