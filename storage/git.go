@@ -210,7 +210,8 @@ func (r *GitRepository) Sync(keys []string) (map[string]Data, error) {
 func (r *GitRepository) Subscribe(keys []string) (<-chan Data, error) {
 	out := make(chan Data)
 
-	var hash string
+	var repohash string
+	filehashes := make(map[string]string)
 
 	go func() {
 		defer close(out)
@@ -233,7 +234,7 @@ func (r *GitRepository) Subscribe(keys []string) (<-chan Data, error) {
 			}
 
 			// if no update has been made since the last sync, skip
-			if ref.Hash().String() != hash {
+			if ref.Hash().String() != repohash {
 				tree, err := c.Tree()
 				if err != nil {
 					r.forwardError(fmt.Errorf("failed to retrieve tree: %w", err))
@@ -244,6 +245,11 @@ func (r *GitRepository) Subscribe(keys []string) (<-chan Data, error) {
 					file, err := tree.File(key)
 					if err != nil {
 						r.forwardError(fmt.Errorf("failed to retrieve file '%s': %w", key, err))
+						continue
+					}
+
+					// if no update has been made since the last sync, skip
+					if file.Hash.String() == filehashes[key] {
 						continue
 					}
 
@@ -259,10 +265,11 @@ func (r *GitRepository) Subscribe(keys []string) (<-chan Data, error) {
 						ValueType: "text/plain",
 						UpdatedAt: c.Author.When,
 					}
+					filehashes[key] = file.Hash.String()
 				}
 			}
 
-			hash = ref.Hash().String()
+			repohash = ref.Hash().String()
 			<-time.After(r.syncInterval)
 		}
 		close(out)

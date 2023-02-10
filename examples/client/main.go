@@ -29,10 +29,14 @@ func main() {
 	// Log the capabilities returned by the server
 	log.Printf("Capabilities: %v", resp.Capabilities)
 
-	subkey := resp.Capabilities[0].Key
+	// subscribe to the first two keys if there are any
+	var subsriptions []string
+	for i := 0; i < 2 && i < len(resp.Capabilities); i++ {
+		subsriptions = append(subsriptions, resp.Capabilities[i].Key)
+	}
 
 	// sync for subkey
-	content, err := client.Sync(context.Background(), &datastream.DataRequest{Keys: []string{subkey}})
+	content, err := client.Sync(context.Background(), &datastream.DataRequest{Keys: subsriptions})
 	if err != nil {
 		log.Fatalf("error sending Sync request: %v", err)
 	}
@@ -41,10 +45,10 @@ func main() {
 		log.Printf("Received sync update for key %s value %v, stringified data %s", key, data.Value, string(data.Value))
 	}
 
-	log.Printf("Subscribing to key: %s", subkey)
+	log.Printf("Subscribing to key: %s", subsriptions)
 
 	// Create a stream to receive updates
-	stream, err := client.Subscribe(context.Background(), &datastream.DataRequest{Keys: []string{subkey}})
+	stream, err := client.Subscribe(context.Background(), &datastream.DataRequest{Keys: subsriptions})
 	if err != nil {
 		log.Fatalf("Failed to subscribe: %v", err)
 	}
