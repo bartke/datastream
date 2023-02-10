@@ -57,8 +57,6 @@ func NewGitRepository(config GitRepositoryConfig) (Storage, error) {
 		return nil, err
 	}
 
-	fmt.Println("tempDir: ", tempDir)
-
 	store := &GitRepository{
 		name:         config.CommitName,
 		email:        config.CommitEmail,
